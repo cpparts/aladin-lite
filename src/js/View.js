@@ -1248,17 +1248,9 @@ export let View = (function () {
                 return;
 
             switch (e.keyCode) {
-                // shift
-                case 16:
-                    view.aladin.select('rect', (selection) => {
-                        view.selectObjects(selection);
-                    })
-                    break;
                 // escape
                 case 27:
                     // if there is a selection occuring
-                    view.selector && view.selector.cancel()
-
                     if (view.aladin.isInFullscreen) {
                         view.aladin.toggleFullscreen(view.aladin.options.realFullscreen);
                     }
