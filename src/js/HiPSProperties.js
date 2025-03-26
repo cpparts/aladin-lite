@@ -38,7 +38,7 @@ HiPSProperties.fetchFromID = async function(ID) {
     const params = {
         get: "record",
         fmt: "json",
-        ID: "*" + ID + "*",
+        ID: "*" + decodeURI(ID) + "*",
     };
 
     let metadata = await Utils.loadFromUrls(MocServer.MIRRORS_HTTPS, {

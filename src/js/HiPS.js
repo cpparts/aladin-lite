@@ -30,6 +30,8 @@ import { ColorCfg } from "./ColorCfg.js";
 import { HiPSProperties } from "./HiPSProperties.js";
 import { Aladin } from "./Aladin.js"; 
 import { CooFrameEnum } from "./CooFrameEnum.js";
+import { Utils } from "./Utils"
+
 let PropertyParser = {};
 // Utilitary functions for parsing the properties and giving default values
 /// Mandatory tileSize property
@@ -860,9 +862,8 @@ export let HiPS = (function () {
 
         let isIncompleteOptions = true;
 
-        // This is very dirty but it allows me to differentiate the location from whether it is an ID or a plain url
-        let isID = this.url.includes("P/") || this.url.includes("C/")
-        
+        let isID = Utils.isUrl(this.url) === undefined;
+
         if (this.imgFormat === "fits") {
             // a fits is given
             isIncompleteOptions = !(
@@ -887,7 +888,6 @@ export let HiPS = (function () {
             if (isIncompleteOptions) {
                 // ID typed url
                 if (self.startUrl && isID) {
-
                     // First download the properties from the start url
                     await HiPSProperties.fetchFromUrl(self.startUrl)
                         .then((p) => {
@@ -909,8 +909,15 @@ export let HiPS = (function () {
 
                                 HiPSProperties.fetchFromID(id)
                                     .then((p) => {
-                                        //self.url = self.startUrl;
                                         self._fetchFasterUrlFromProperties(p);
+                                    })
+                                    .catch(() => {
+                                        // If no ID has been found then it may actually be a path
+                                        // url pointing to a local HiPS
+                                        return HiPSProperties.fetchFromUrl(id)
+                                            .then((p) => {
+                                                self._parseProperties(p);
+                                            })
                                     })
                             },
                             1000
@@ -932,6 +939,14 @@ export let HiPS = (function () {
                                 self._parseProperties(p);
                                 self._fetchFasterUrlFromProperties(p);
                             })
+                            .catch(() => {
+                                // If no ID has been found then it may actually be a path
+                                // url pointing to a local HiPS
+                                return HiPSProperties.fetchFromUrl(id)
+                                    .then((p) => {
+                                        self._parseProperties(p);
+                                    })
+                                })
                     } catch (e) {
                         throw e;
                     }
