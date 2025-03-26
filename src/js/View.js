@@ -246,8 +246,6 @@ export let View = (function () {
         // some variables for mouse handling
         this.dragging = false;
         this.dragCoo = null;
-        this.rightclickx = null;
-        this.rightclicky = null;
         this.selectedLayer = 'base';
 
         this.needRedraw = true;
@@ -618,6 +616,7 @@ export let View = (function () {
         };
         var longTouchTimer;
         var longTouchDuration = 800;
+        var showContextMenu = true;
         var xystart;
 
         var handleSelect = function(xy, tolerance) {
@@ -688,9 +687,7 @@ export let View = (function () {
 
             if (e.which === 3 || e.button === 2) {
                 view.rightClick = true;
-                view.rightClickTimeStart = Date.now();
-                view.rightclickx = xymouse.x;
-                view.rightclicky = xymouse.y;
+                showContextMenu = true;
 
                 if (view.selectedLayer) {
                     const imageLayer = view.imageLayers.get(view.selectedLayer);
@@ -776,15 +773,11 @@ export let View = (function () {
             });
 
             if (view.rightClick) {
-                const rightClickDurationMs = Date.now() - view.rightClickTimeStart;
-                if (rightClickDurationMs < 100) {
+                if (showContextMenu) {
                     view.aladin.contextMenu && view.aladin.contextMenu.show({e});
                 }
 
                 view.rightClick = false;
-                view.rightclickx = null;
-                view.rightclicky = null;
-                view.rightClickTimeStart = undefined;
 
                 return;
             }
@@ -815,10 +808,9 @@ export let View = (function () {
                         view.aladin.statusBar.removeMessage('opening-ctxmenu')
                     }
                     clearTimeout(longTouchTimer)
+                    longTouchTimer = undefined;
                 }
             }
-
-            xystart = undefined;
 
             if ((e.type === 'touchend' || e.type === 'touchcancel') && view.pinchZoomParameters.isPinching) {
                 view.pinchZoomParameters.isPinching = false;
@@ -921,7 +913,6 @@ export let View = (function () {
         var lastMouseMovePos = null;
         Utils.on(view.catalogCanvas, "mousemove touchmove", function (e) {
             e.preventDefault();
-            //e.stopPropagation();
 
             const xymouse = Utils.relMouseCoords(e);
 
@@ -935,16 +926,17 @@ export let View = (function () {
                 xy: xymouse,
             });
 
+            let dist = (() => {
+                return (xymouse.x - xystart.x)*(xymouse.x - xystart.x) + (xymouse.y - xystart.y)*(xymouse.y - xystart.y)
+            })();
+
             if (e.type === 'touchmove' && xystart) {
-                let dist = (() => {
-                    return (xymouse.x - xystart.x)*(xymouse.x - xystart.x) + (xymouse.y - xystart.y)*(xymouse.y - xystart.y)
-                })();
                 if (longTouchTimer && dist > 100) {
                     if (view.aladin.statusBar) {
                         view.aladin.statusBar.removeMessage('opening-ctxmenu')
                     }
                     clearTimeout(longTouchTimer)
-                    xystart = undefined;
+                    longTouchTimer = undefined;
                 }
             }
 
@@ -957,10 +949,11 @@ export let View = (function () {
                     return;
                 }
 
-                const rightClickDurationMs = Date.now() - view.rightClickTimeStart;
-                if (rightClickDurationMs < 100) {
+                if (dist < 100) {
                     return;
                 }
+
+                showContextMenu = false;
 
                 if(view.selectedLayer) {
                     let selectedLayer = view.imageLayers.get(view.selectedLayer);
