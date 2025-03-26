@@ -5,8 +5,8 @@ pub enum UserAction {
     Moving = 3,
     Starting = 4,
 }
-use web_sys::WebGl2RenderingContext;
 
+use web_sys::WebGl2RenderingContext;
 // Longitude reversed identity matrix
 const ID_R: &Matrix4<f64> = &Matrix4::new(
     -1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
@@ -488,11 +488,11 @@ impl CameraViewPort {
     pub fn set_center(&mut self, lonlat: &LonLatT<f64>, proj: &ProjectionType) {
         let icrs_pos: Vector4<_> = lonlat.vector();
 
-        let view_pos = CooSystem::ICRS.to(self.get_coo_system()) * icrs_pos;
-        let rot_to_center = Rotation::from_sky_position(&view_pos);
+        let center = (CooSystem::ICRS.to(self.get_coo_system()) * icrs_pos).truncate();
+        let rot_to_center = Rotation::from_sky_position(&center);
 
         let phi = self.get_center_pos_angle();
-        let third_euler_rot = Rotation::from_axis_angle(&view_pos.truncate(), phi);
+        let third_euler_rot = Rotation::from_axis_angle(&center, phi);
 
         let rot = third_euler_rot * rot_to_center;
 
@@ -502,8 +502,9 @@ impl CameraViewPort {
     }
 
     pub fn set_center_pos_angle(&mut self, phi: Angle<f64>, proj: &ProjectionType) {
-        let rot_to_center = Rotation::from_sky_position(&self.center);
-        let third_euler_rot = Rotation::from_axis_angle(&self.center.truncate(), phi);
+        let c = self.center.truncate();
+        let rot_to_center = Rotation::from_sky_position(&c);
+        let third_euler_rot = Rotation::from_axis_angle(&c, phi);
 
         let total_rot = third_euler_rot * rot_to_center;
         self.set_rotation(&total_rot, proj);
@@ -523,7 +524,7 @@ impl CameraViewPort {
         // Compute the center position according to the new coordinate frame system
         let new_center = coosys::apply_coo_system(self.coo_sys, new_coo_sys, &self.center);
         // Create a rotation object from that position
-        let new_rotation = Rotation::from_sky_position(&new_center);
+        let new_rotation = Rotation::from_sky_position(&new_center.truncate());
         // Apply it to the center of the view
         self.set_rotation(&new_rotation, proj);
 

@@ -926,9 +926,10 @@ export let View = (function () {
                 xy: xymouse,
             });
 
-            let dist = (() => {
-                return (xymouse.x - xystart.x)*(xymouse.x - xystart.x) + (xymouse.y - xystart.y)*(xymouse.y - xystart.y)
-            })();
+            let dist;
+            if (xystart) {
+                dist = (xymouse.x - xystart.x)*(xymouse.x - xystart.x) + (xymouse.y - xystart.y)*(xymouse.y - xystart.y);
+            }
 
             if (e.type === 'touchmove' && xystart) {
                 if (longTouchTimer && dist > 100) {

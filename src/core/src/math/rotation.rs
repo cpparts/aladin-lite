@@ -1,8 +1,8 @@
 use crate::math;
+use crate::math::angle::ToAngle;
 use cgmath::{BaseFloat, InnerSpace};
 use cgmath::{Euler, Quaternion};
 use cgmath::{Vector3, Vector4};
-use crate::math::angle::ToAngle;
 
 #[derive(Clone, Copy, Debug)]
 // Internal structure of a rotation, a quaternion
@@ -109,13 +109,13 @@ where
     // Define a rotation from an axis and a angle
     pub fn from_axis_angle(axis: &Vector3<S>, angle: Angle<S>) -> Rotation<S> {
         let angle: Rad<S> = angle.into();
-        let mat4 = Matrix4::from_axis_angle(*axis, angle);
+        let mat4 = Matrix4::from_axis_angle(axis.normalize(), angle);
         (&mat4).into()
     }
 
     // Define a rotation from a normalized vector
-    pub fn from_sky_position(pos: &Vector4<S>) -> Rotation<S> {
-        let (lon, lat) = math::lonlat::xyzw_to_radec(&pos.normalize());
+    pub fn from_sky_position(pos: &Vector3<S>) -> Rotation<S> {
+        let (lon, lat) = math::lonlat::xyz_to_radec(&pos);
 
         let rot_y = Matrix4::from_angle_y(lon);
         let rot_x = Matrix4::from_angle_x(-lat);

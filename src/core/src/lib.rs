@@ -523,7 +523,7 @@ impl WebClient {
 
     /// Get if the longitude axis is reversed
     #[wasm_bindgen(js_name = getLongitudeReversed)]
-    pub fn get_longitude_reversed(&mut self) -> bool {
+    pub fn get_longitude_reversed(&self) -> bool {
         self.app.get_longitude_reversed()
     }
 

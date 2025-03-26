@@ -35,6 +35,7 @@ import cameraIconUrl from '../../assets/icons/camera.svg'
 import targetIconUrl from '../../assets/icons/target.svg';
 import uploadIconUrl from '../../assets/icons/upload.svg';
 import selectIconUrl from '../../assets/icons/select.svg';
+import { Utils } from "./Utils";
 
 export let DefaultActionsForContextMenu = (function () {
 
@@ -55,7 +56,7 @@ export let DefaultActionsForContextMenu = (function () {
                         return false;
                     }
 
-                    navigator.clipboard.writeText(text)
+                    Utils.copy2Clipboard(text)
                         .then(() => {
                             msg = 'successful'
                             if (aladinInstance.statusBar) {

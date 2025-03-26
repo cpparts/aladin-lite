@@ -22,7 +22,7 @@ import shareIconUrl from '../../../../assets/icons/share.svg';
 import cameraIconUrl from '../../../../assets/icons/camera.svg';
 import linkIconUrl from '../../../../assets/icons/link.svg';
 import jupyterIconUrl from '../../../../assets/icons/jupyter.svg';
-
+import { Utils } from "../../Utils";
 /******************************************************************************
  * Aladin Lite project
  *
@@ -62,15 +62,16 @@ import jupyterIconUrl from '../../../../assets/icons/jupyter.svg';
                 },
                 action(o) {
                     var url = aladin.getShareURL();
-                    navigator.clipboard.writeText(url);
-
-                    if (aladin.statusBar) {
-                        aladin.statusBar.appendMessage({
-                            message: 'View URL saved into your clipboard!',
-                            duration: 2000,
-                            type: 'info'
+                    Utils.copy2Clipboard(url)
+                        .then(() => {
+                            if (aladin.statusBar) {
+                                aladin.statusBar.appendMessage({
+                                    message: 'View URL saved into your clipboard!',
+                                    duration: 2000,
+                                    type: 'info'
+                                })
+                            }
                         })
-                    }
                 }
             },
             {
