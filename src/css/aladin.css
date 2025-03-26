@@ -505,12 +505,15 @@
 
 .aladin-form .aladin-form-input {
     display: flex;
-    justify-content: flex-end;
     align-items: center;
+    justify-content: space-between;
+}
+
+.aladin-form-group > * {
     margin-bottom: 0.4rem;
 }
 
-.aladin-form .aladin-form-input:last-of-type {
+.aladin-form-group > *:last-of-type {
     margin-bottom: 0;
 }
 
@@ -525,10 +528,6 @@
 
 .aladin-form .aladin-form-input select {
     width: 100%;
-}
-
-.aladin-form .aladin-form-input > label {
-    flex: 1;
 }
 
 .aladin-form .aladin-form-input .aladin-input {
@@ -840,11 +839,16 @@
     box-shadow: 0 0 1em 0 rgba(0, 0, 0, 0.2);
     cursor: pointer;
     font-family: monospace;
-    width: 100%;
     box-sizing: content-box;
     /* <option> colors */
     /* Remove focus outline */
     /* Remove IE arrow */
+}
+
+/* This is done so that the select shrink to the size of its parent (coupled with flex)
+otherwise it fits its content options. If those are too big the select can go out of its parent */
+.aladin-horizontal-list .aladin-input-select {
+    width: 100%;
 }
 
 .aladin-input-select option {

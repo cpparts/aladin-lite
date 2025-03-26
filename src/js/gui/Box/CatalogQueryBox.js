@@ -279,7 +279,7 @@ import { ActionButton } from "../Widgets/ActionButton.js";
                     header: Layout.horizontal([selectorBtn, 'Cone search']),
                     subInputs: [
                         {
-                            label: "ra:",
+                            label: "RA:",
                             name: "ra",
                             type: "text",
                             value: defaultRa,
@@ -291,7 +291,7 @@ import { ActionButton } from "../Widgets/ActionButton.js";
                             }
                         },
                         {
-                            label: "dec:",
+                            label: "Dec:",
                             name: "dec",
                             type: "text",
                             value: defaultDec,
