@@ -1,6 +1,7 @@
 use crate::renderable::ImageLayer;
 use crate::tile_fetcher::HiPSLocalFiles;
 
+use crate::math::angle::ToAngle;
 use crate::renderable::hips::HiPS;
 use crate::{
     //async_task::{BuildCatalogIndex, ParseTableTask, TaskExecutor, TaskResult, TaskType},
@@ -21,7 +22,6 @@ use crate::{
     time::DeltaTime,
 };
 use al_api::moc::MOCOptions;
-use crate::math::angle::ToAngle;
 use wcs::WCS;
 
 use wasm_bindgen::prelude::*;
@@ -188,7 +188,7 @@ impl App {
         let request_for_new_tiles = true;
 
         let moc = MOCRenderer::new(&gl)?;
-        gl.clear_color(0.0, 0.0, 0.0, 1.0);
+        gl.clear_color(0.1, 0.1, 0.1, 1.0);
 
         let (img_send, img_recv) = async_channel::unbounded::<ImageLayer>();
         let (ack_img_send, ack_img_recv) = async_channel::unbounded::<ImageParams>();
@@ -714,8 +714,8 @@ impl App {
                                             )?,
                                         }
                                         self.time_start_blending = Time::now();
-                                    },
-                                    _ => ()
+                                    }
+                                    _ => (),
                                 };
                             }
                         }
@@ -1277,8 +1277,7 @@ impl App {
         // Set the new meta
         // keep the old meta data
         let new_img_ext = meta.img_format;
-        self.layers
-            .set_layer_cfg(layer.clone(), meta)?;
+        self.layers.set_layer_cfg(layer.clone(), meta)?;
 
         if old_meta.img_format != new_img_ext {
             // The image format has been changed
