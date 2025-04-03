@@ -485,22 +485,24 @@ export let Aladin = (function () {
         // maximize control
         if (options.showFullscreenControl) {
             // react to fullscreenchange event to restore initial width/height (if user pressed ESC to go back from full screen)
+            // This event is only triggered with realFullscreen on
             Utils.on(
                 document,
                 "fullscreenchange webkitfullscreenchange mozfullscreenchange MSFullscreenChange",
-                function (e) {
+                () => {
                     var fullscreenElt =
                         document.fullscreenElement ||
                         document.webkitFullscreenElement ||
                         document.mozFullScreenElement ||
                         document.msFullscreenElement;
                     if (fullscreenElt === null || fullscreenElt === undefined) {
-                        self.toggleFullscreen(options.realFullscreen);
-
-                        var fullScreenToggledFn =
-                            self.callbacksByEventName["fullScreenToggled"];
-                        typeof fullScreenToggledFn === "function" &&
-                            fullScreenToggledFn(self.isInFullscreen);
+                        // fix: Only toggle off the screen once because in case of closing the real fullscreen from the ui button, this could be called 2 times
+                        // * one toggleFullscreen from the button itself
+                        // * one toggleFullscreen from the fullscreenchange event
+                        // => resulting in closing and opening the fullscreen again.
+                        if (self.isInFullscreen) {
+                            self.toggleFullscreen(options.realFullscreen);
+                        }
                     }
                 }
             );
@@ -716,7 +718,6 @@ export let Aladin = (function () {
     Aladin.prototype.toggleFullscreen = function (realFullscreen) {
         let self = this;
 
-        realFullscreen = Boolean(realFullscreen);
         self.isInFullscreen = !self.isInFullscreen;
 
         ContextMenu.hideAll();
@@ -727,13 +728,7 @@ export let Aladin = (function () {
                 ui.toggle();
             }
         })
-
-        if (this.aladinDiv.classList.contains("aladin-fullscreen")) {
-            this.aladinDiv.classList.remove("aladin-fullscreen");
-        } else {
-            this.aladinDiv.classList.add("aladin-fullscreen");
-        }
-
+        
         if (realFullscreen) {
             // go to "real" full screen mode
             if (self.isInFullscreen) {
@@ -763,6 +758,8 @@ export let Aladin = (function () {
                 }
             }
         }
+
+        this.aladinDiv.classList.toggle("aladin-fullscreen");
 
         // Delay the fixLayoutDimensions layout for firefox
         /*setTimeout(function () {

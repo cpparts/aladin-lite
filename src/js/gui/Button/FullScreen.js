@@ -57,8 +57,8 @@ export class FullScreenActionButton extends ActionButton {
                 if (aladin.statusBar) {
                     aladin.statusBar.removeMessage('tooltip')
                 }
-    
-                aladin.toggleFullscreen(aladin.options.realFullscreen);    
+
+                aladin.toggleFullscreen(aladin.options.realFullscreen);
             }
         })
 

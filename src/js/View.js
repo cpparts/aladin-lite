@@ -1263,7 +1263,7 @@ export let View = (function () {
             switch (e.keyCode) {
                 // escape
                 case 27:
-                    // if there is a selection occuring
+                    // Called when realfullscreen is false. Escaping from real fullscreen does not seem to trigger the keydown event
                     if (view.aladin.isInFullscreen) {
                         view.aladin.toggleFullscreen(view.aladin.options.realFullscreen);
                     }
