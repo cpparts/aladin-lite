@@ -2,10 +2,10 @@ use crate::downloader::{query, Downloader};
 use crate::time::{DeltaTime, Time};
 use crate::Abort;
 
+use al_api::moc::MOCOptions;
 use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 use std::rc::Rc;
-use al_api::moc::MOCOptions;
 
 const MAX_NUM_TILE_FETCHING: usize = 8;
 const MAX_QUERY_QUEUE_LENGTH: usize = 100;
@@ -214,7 +214,7 @@ impl TileFetcherQueue {
 
         let tile_size = cfg.get_tile_size();
         //Request the allsky for the small tile size or if base tiles are not available
-        if tile_size <= 128 || cfg.get_min_depth_tile() > 0 {
+        if tile_size <= 256 || cfg.get_min_depth_tile() > 0 {
             // Request the allsky
             downloader.borrow_mut().fetch(query::Allsky::new(
                 cfg,

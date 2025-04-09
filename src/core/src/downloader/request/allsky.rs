@@ -185,14 +185,24 @@ impl From<query::Allsky> for AllskyRequest {
                                 .collect())
                         }
                         InMemData::F32(data) => {
-                            let data = unsafe { std::slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 4) };
+                            let data = unsafe {
+                                std::slice::from_raw_parts(
+                                    data.as_ptr() as *const u8,
+                                    data.len() * 4,
+                                )
+                            };
                             Ok(handle_allsky_fits(&data, tile_size, texture_size)?
                                 .map(|image| ImageType::RawRgba8u { image })
                                 .collect())
                         }
                         InMemData::F64(data) => {
                             let data = data.iter().map(|v| *v as f32).collect::<Vec<_>>();
-                            let data = unsafe { std::slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 4) };
+                            let data = unsafe {
+                                std::slice::from_raw_parts(
+                                    data.as_ptr() as *const u8,
+                                    data.len() * 4,
+                                )
+                            };
 
                             Ok(handle_allsky_fits(&data, tile_size, texture_size)?
                                 .map(|image| ImageType::RawRgba8u { image })
@@ -228,71 +238,77 @@ fn handle_allsky_file<F: ImageFormat>(
     let num_allsky_tiles_per_tile = (tile_size / allsky_tile_size) * (tile_size / allsky_tile_size);
 
     let mut src_idx = 0;
-    let tiles = (0..num_tiles)
-        .map(move |_| {
-            let mut base_tile =
+    let tiles = (0..num_tiles).map(move |_| {
+        let mut base_tile =
             ImageBuffer::<F>::allocate(&<F as ImageFormat>::P::BLACK, tile_size, tile_size);
-            for idx_tile in 0..num_allsky_tiles_per_tile {
-                let (x, y) = crate::utils::unmortonize(idx_tile as u64);
-                let dx = x * (allsky_tile_size as u32);
-                let dy = y * (allsky_tile_size as u32);
+        for idx_tile in 0..num_allsky_tiles_per_tile {
+            let (x, y) = crate::utils::unmortonize(idx_tile as u64);
+            let dx = x * (allsky_tile_size as u32);
+            let dy = y * (allsky_tile_size as u32);
 
-                let sx = (src_idx % 27) * allsky_tile_size;
-                let sy = (src_idx / 27) * allsky_tile_size;
-                let s = ImageBufferView {
-                    x: sx as i32,
-                    y: sy as i32,
-                    w: allsky_tile_size as i32,
-                    h: allsky_tile_size as i32,
-                };
-                let d = ImageBufferView {
-                    x: dx as i32,
-                    y: dy as i32,
-                    w: allsky_tile_size as i32,
-                    h: allsky_tile_size as i32,
-                };
+            let sx = (src_idx % 27) * allsky_tile_size;
+            let sy = (src_idx / 27) * allsky_tile_size;
+            let s = ImageBufferView {
+                x: sx as i32,
+                y: sy as i32,
+                w: allsky_tile_size as i32,
+                h: allsky_tile_size as i32,
+            };
+            let d = ImageBufferView {
+                x: dx as i32,
+                y: dy as i32,
+                w: allsky_tile_size as i32,
+                h: allsky_tile_size as i32,
+            };
 
-                base_tile.tex_sub(&allsky, &s, &d);
+            base_tile.tex_sub(&allsky, &s, &d);
 
-                src_idx += 1;
-            }
+            src_idx += 1;
+        }
 
-            base_tile
-        });
+        base_tile
+    });
 
     Ok(tiles)
 }
 
 fn handle_allsky_fits<F: ImageFormat>(
     allsky_data: &[<<F as ImageFormat>::P as Pixel>::Item],
+
     tile_size: i32,
     texture_size: i32,
-) -> Result<impl Iterator<Item=ImageBuffer<F>>, JsValue> {
+) -> Result<impl Iterator<Item = ImageBuffer<F>>, JsValue> {
     let allsky_tile_size = std::cmp::min(tile_size, 64);
     let width_allsky_px = 27 * allsky_tile_size;
     let height_allsky_px = 29 * allsky_tile_size;
     // The fits image layout stores rows in reverse
     let reversed_rows_data = allsky_data
-        .chunks(width_allsky_px as usize)
+        .chunks(width_allsky_px as usize * F::NUM_CHANNELS)
         .rev()
         .flatten()
         .copied()
         .collect::<Vec<_>>();
-
     let allsky = ImageBuffer::<F>::new(reversed_rows_data, width_allsky_px, height_allsky_px);
 
-    let allsky_tiles_iter = handle_allsky_file::<F>(allsky, allsky_tile_size, texture_size, tile_size)?
-        .map(move |image| {
-            // The GPU does a specific transformation on the UV
-            // for FITS tiles
-            // We must revert this to be compatible with this GPU transformation
-            let mut new_image_data = Vec::with_capacity(tile_size as usize);
-            for c in image.get_data().chunks((tile_size * tile_size) as usize) {
-                new_image_data.extend(c.chunks(tile_size as usize).rev().flatten());
-            }
+    let allsky_tiles_iter =
+        handle_allsky_file::<F>(allsky, allsky_tile_size, texture_size, tile_size)?.map(
+            move |image| {
+                // The GPU does a specific transformation on the UV for FITS tiles
+                // We must revert this to be compatible with this GPU transformation
+                let new_image_data = image
+                    .get_data()
+                    .chunks((tile_size * tile_size) as usize * F::NUM_CHANNELS)
+                    .flat_map(|c| {
+                        c.chunks(tile_size as usize * F::NUM_CHANNELS)
+                            .rev()
+                            .flatten()
+                    })
+                    .cloned()
+                    .collect();
 
-            ImageBuffer::<F>::new(new_image_data, tile_size, tile_size)
-        });
+                ImageBuffer::<F>::new(new_image_data, tile_size, tile_size)
+            },
+        );
 
     Ok(allsky_tiles_iter)
 }
