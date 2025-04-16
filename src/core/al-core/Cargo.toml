@@ -1,6 +1,6 @@
 [package]
 name = "al-core"
-version = "0.1.0"
+version = "3.6.5"
 authors = ["baumannmatthieu0@gmail.com", "matthieu.baumann@astro.unistra.fr"]
 edition = "2018"
 
@@ -17,9 +17,7 @@ serde-wasm-bindgen = "0.4"
 wasm-streams = "0.3.0"
 futures = "0.3.25"
 colorgrad = "0.6.2"
-
-[dependencies.wasm-bindgen]
-version = "0.2.92"
+wasm-bindgen = "0.2.92"
 
 [dev-dependencies]
 fontdue = "0.7.2"
@@ -38,7 +36,7 @@ webgl2 = [
 ]
 
 [dependencies.web-sys]
-version = "0.3.77"
+version = "0.3.56"
 features = [
   'console',
   'CssStyleDeclaration',

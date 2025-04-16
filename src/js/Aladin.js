@@ -123,7 +123,8 @@ import { Polyline } from "./shapes/Polyline";
  * @property {boolean} [showReticle=true] - Whether to show the reticle.
  * @property {boolean} [showCatalog=true] - Whether to show the catalog.
  * @property {boolean} [showCooGrid=true] - Whether the coordinates grid should be shown at startup.
- *
+ * @property {boolean} [inertia=true] - Whether mouse release triggers an inertia effect.
+ * @property {boolean} [lockNorthUp=false] - If true, the north pole will always be up.
  * @property {boolean} [fullScreen=false] - Whether to start in full-screen mode.
  * @property {string} [reticleColor="rgb(178, 50, 178)"] - Color of the reticle in RGB format.
  * @property {number} [reticleSize=22] - Size of the reticle.
@@ -142,7 +143,8 @@ import { Polyline } from "./shapes/Polyline";
  * @property {number} [gridOptions.labelSize=15] - The font size of the labels.
  * 
  * @property {string} [projection="SIN"] - Projection type. Can be 'SIN' for orthographic, 'MOL' for mollweide, 'AIT' for hammer-aitoff, 'ZEA' for zenital equal-area or 'MER' for mercator
- * @property {boolean} [log=true] - Whether to log events.
+ * @property {boolean} [longitudeReversed=false] - Longitude reverse axis flag. Set to true to reverse the longitude axis. This is especially needed for planetary survey visualization. Default is set to false.
+* @property {boolean} [log=true] - Whether to log events.
  * @property {boolean} [samp=false] - Whether to enable SAMP (Simple Application Messaging Protocol).
  * @property {boolean} [realFullscreen=false] - Whether to use real fullscreen mode.
  * @property {boolean} [pixelateCanvas=true] - Whether to pixelate the canvas.
@@ -223,14 +225,14 @@ import { Polyline } from "./shapes/Polyline";
  */
 
 /**
- * @typedef {('select'|'objectsSelected'|'objectClicked'|'objectHovered'|'objectHoveredStop'|'footprintClicked'|'footprintHovered'|'positionChanged'|'zoomChanged'|'click'|'rightClickMove'|'mouseMove'|'wheelTriggered'|'fullScreenToggled'|'cooFrameChanged'|'resizeChanged'|'projectionChanged'|'layerChanged')} EventListener
+ * @typedef {('select'|'objectsSelected'|'objectClicked'|'objectHovered'|'objectHoveredStop'|'footprintClicked'|'footprintHovered'|'positionChanged'|'zoomChanged'|'rotationChanged'|'click'|'rightClickMove'|'mouseMove'|'wheelTriggered'|'fullScreenToggled'|'cooFrameChanged'|'resizeChanged'|'projectionChanged'|'layerChanged')} EventListener
  * 
  * Some remarks:
  * <ul>
  * <li>'select' is <b>deprecated</b>, please use objectsSelected instead.</li>
  * <li>'mouseMove', 'click', 'wheelTriggered' are low level event listeners allowing the user to redefine basic functions. For example listening for 'wheelTriggered' will disable the default zooming heuristic then letting you to redefine it.</li>
  * <li>'objectsSelected', 'objectClicked', 'objectHovered', 'objectHoveredStop', 'footprintClicked', 'footprintHovered' are triggered when a catalog source/footprint has been clicked, hovered, ...
- * <li>Whenever the position (resp the fov) of the view has been changed 'positionChanged' (resp 'zoomChanged') is called</li>
+ * <li>Whenever the position (resp the fov/rotation) of the view has been changed 'positionChanged' (resp 'zoomChanged'/'rotationChanged') is called</li>
  * </ul>
  */
 
@@ -412,6 +414,8 @@ export let Aladin = (function () {
             // Merge what is already in the cache for that HiPS with new properties
             // coming from the MOCServer
             this.hipsFavorites.push(hipsObj);
+            // Favorites are also directly pushed to the cache
+            this.hipsCache.append(hipsObj.id, hipsObj)
         }
 
         this._setupUI(options);
@@ -431,11 +435,7 @@ export let Aladin = (function () {
                 });
             } else if (options.survey === HiPS.DEFAULT_SURVEY_ID) {
                 // DSS is cached inside HiPS class, no need to provide any further information
-                const survey = this.createImageSurvey(
-                    HiPS.DEFAULT_SURVEY_ID
-                );
-
-                this.setBaseImageLayer(survey);
+                this.setBaseImageLayer(HiPS.DEFAULT_SURVEY_ID);
             } else {
                 this.setBaseImageLayer(options.survey);
             }
@@ -471,22 +471,24 @@ export let Aladin = (function () {
         // maximize control
         if (options.showFullscreenControl) {
             // react to fullscreenchange event to restore initial width/height (if user pressed ESC to go back from full screen)
+            // This event is only triggered with realFullscreen on
             Utils.on(
                 document,
                 "fullscreenchange webkitfullscreenchange mozfullscreenchange MSFullscreenChange",
-                function (e) {
+                () => {
                     var fullscreenElt =
                         document.fullscreenElement ||
                         document.webkitFullscreenElement ||
                         document.mozFullScreenElement ||
                         document.msFullscreenElement;
                     if (fullscreenElt === null || fullscreenElt === undefined) {
-                        self.toggleFullscreen(options.realFullscreen);
-
-                        var fullScreenToggledFn =
-                            self.callbacksByEventName["fullScreenToggled"];
-                        typeof fullScreenToggledFn === "function" &&
-                            fullScreenToggledFn(self.isInFullscreen);
+                        // fix: Only toggle off the screen once because in case of closing the real fullscreen from the ui button, this could be called 2 times
+                        // * one toggleFullscreen from the button itself
+                        // * one toggleFullscreen from the fullscreenchange event
+                        // => resulting in closing and opening the fullscreen again.
+                        if (self.isInFullscreen) {
+                            self.toggleFullscreen(options.realFullscreen);
+                        }
                     }
                 }
             );
@@ -504,12 +506,22 @@ export let Aladin = (function () {
             this.samp = new SAMPConnector(this);
         }
 
+        // lockNorthUp option
+        this.lockNorthUp = options.lockNorthUp || false;
+        if (this.lockNorthUp) {
+            this.wasm.lockNorthUp();
+        }
+
         if (options.inertia !== undefined) {
             this.wasm.setInertia(options.inertia);
         }
 
         if (options.northPoleOrientation) {
-            this.setViewCenter2NorthPoleAngle(options.northPoleOrientation);
+            this.setRotation(options.northPoleOrientation);
+        }
+
+        if (options.longitudeReversed !== undefined && options.longitudeReversed !== null) {
+            this.reverseLongitude(options.longitudeReversed)
         }
     };
 
@@ -693,6 +705,8 @@ export let Aladin = (function () {
         projection: "SIN",
         log: true,
         samp: false,
+        // Longitude reversed flag
+        longitudeReversed: false,
         realFullscreen: false,
         pixelateCanvas: true,
         manualSelection: false
@@ -702,7 +716,6 @@ export let Aladin = (function () {
     Aladin.prototype.toggleFullscreen = function (realFullscreen) {
         let self = this;
 
-        realFullscreen = Boolean(realFullscreen);
         self.isInFullscreen = !self.isInFullscreen;
 
         ContextMenu.hideAll();
@@ -713,13 +726,7 @@ export let Aladin = (function () {
                 ui.toggle();
             }
         })
-
-        if (this.aladinDiv.classList.contains("aladin-fullscreen")) {
-            this.aladinDiv.classList.remove("aladin-fullscreen");
-        } else {
-            this.aladinDiv.classList.add("aladin-fullscreen");
-        }
-
+        
         if (realFullscreen) {
             // go to "real" full screen mode
             if (self.isInFullscreen) {
@@ -749,6 +756,8 @@ export let Aladin = (function () {
                 }
             }
         }
+
+        this.aladinDiv.classList.toggle("aladin-fullscreen");
 
         // Delay the fixLayoutDimensions layout for firefox
         /*setTimeout(function () {
@@ -896,7 +905,7 @@ export let Aladin = (function () {
      * Sets the coordinate frame of the Aladin instance to the specified frame.
      *
      * @memberof Aladin
-     * @param {string} frame - The name of the coordinate frame. Possible values: 'j2000d', 'j2000', 'gal', 'icrs'. The given string is case insensitive.
+     * @param {string} frame - The name of the coordinate frame. Possible values: 'j2000d', 'j2000', 'gal', 'icrs', 'equatorial'. The given string is case insensitive.
      *
      * @example
      * // Set the coordinate frame to 'J2000'
@@ -1572,10 +1581,8 @@ export let Aladin = (function () {
         let hipsOptions = { id, name, maxOrder, url, cooFrame, ...options };
         let hips = new HiPS(id, url || id, hipsOptions)
 
-        // This allows to retrieve the survey's options when it will be
-        // added later to the view.
-        if (this instanceof Aladin && !this.hipsCache.contains(hips.id)) {
-            // Add it to the cache as soon as possible if we have a reference to the aladin object
+        // A HiPS can be refered by its unique ID thus we add it to the cache (cf excample/al-cfht.html that refers to HiPS object just by their unique ID)
+        if (this instanceof Aladin) {
             this.hipsCache.append(hips.id, hipsOptions)
         }
 
@@ -1786,6 +1793,16 @@ export let Aladin = (function () {
     };
 
     /**
+     * Reverse the longitude axis of the view globally
+     *
+     * @memberof Aladin
+     * @param {Boolean} [longitudeReversed] - Reverse the longitude axis
+     */
+    Aladin.prototype.reverseLongitude = function (longitudeReversed) {
+        this.view.reverseLongitude(longitudeReversed)
+    };
+
+    /**
      * Add a new HiPS layer to the view on top of the others
      *
      * @memberof Aladin
@@ -1932,12 +1949,14 @@ export let Aladin = (function () {
         let imageLayer;
 
         let hipsCache = this.hipsCache;
+
         // 1. User gives an ID
         if (typeof urlOrHiPSOrFITS === "string") {
             const idOrUrl = urlOrHiPSOrFITS;
             // many cases here
             // 1/ It has been already added to the cache
             let cachedOptions = hipsCache.get(idOrUrl)
+
             if (cachedOptions) {
                 imageLayer = A.HiPS(idOrUrl, cachedOptions);
             } else {
@@ -1957,16 +1976,14 @@ export let Aladin = (function () {
                 if (!cachedLayerOptions) {
                     hipsCache.append(imageLayer.id, imageLayer.options)
                 } else {
-                    // set the options from what is in the cache
-                    imageLayer.setOptions(cachedLayerOptions);
+                    // Set the image layer object with the options from the cache.
+                    imageLayer.setOptions(cachedLayerOptions)
                 }
             }
         }
 
         // Add it to the hipsList if it is not there yet
         this.addHiPSToFavorites(imageLayer)
-
-        imageLayer.layer = layer;
 
         return this.view.setOverlayImageLayer(imageLayer, layer);
     };
@@ -2001,7 +2018,7 @@ export let Aladin = (function () {
      * view in the counter clockwise order (or towards the east)
      */
     Aladin.prototype.setRotation = function (rotation) {
-        this.view.setViewCenter2NorthPoleAngle(rotation);
+        this.view.setRotation(rotation);
     };
 
 
@@ -2014,7 +2031,7 @@ export let Aladin = (function () {
      * @returns {number} - Angle between the position center and the north pole
      */
     Aladin.prototype.getRotation = function () {
-        return this.view.wasm.getViewCenter2NorthPoleAngle();
+        return this.view.wasm.getRotation();
     };
 
     /**
@@ -2113,6 +2130,7 @@ export let Aladin = (function () {
 
         "positionChanged",
         "zoomChanged",
+        "rotationChanged",
 
         "click",
         "rightClickMove",
@@ -2184,7 +2202,7 @@ export let Aladin = (function () {
         aladin.on("layerChanged", (layer, layerName, state) => {
             console.log("layerChanged", layer, layerName, state)
         })
-     */
+    */
     Aladin.prototype.on = function (what, myFunction) {
         if (Aladin.AVAILABLE_CALLBACKS.indexOf(what) < 0) {
             return;

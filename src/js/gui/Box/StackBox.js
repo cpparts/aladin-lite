@@ -85,7 +85,7 @@ export class OverlayStackBox extends Box {
                 hoverColor: 'red',
                 onClick: "showTable",
                 shape: (s) => {
-                    let galaxy = ["Seyfert","Seyfert_1", "Seyfert_2","LSB_G","PartofG","RadioG","Gin","GinPair","HII_G","LensedG","BClG","BlueCompG","EmG","GinCl","GinGroup","StarburstG","LINER","AGN","Galaxy"].some((n) => s.data.main_type.indexOf(n) >= 0);
+                    let galaxy = ["Seyfert","Seyfert_1", "Seyfert_2","LSB_G","PartofG","RadioG","Gin","GinPair","HII_G","LensedG","BClG","BlueCompG","EmG","GinCl","GinGroup","StarburstG","LINER","AGN", "Galaxy", "GtowardsGroup", "GtowardsCl", "BrightestCG"].some((n) => s.data.main_type.indexOf(n) >= 0);
                     if (!galaxy) return;
 
                     let a = +s.data.size_maj;
@@ -528,15 +528,7 @@ export class OverlayStackBox extends Box {
                                 position: self.position,
                             });*/
                             self.aladin.addNewImageLayer(
-                                A.imageHiPS('P/DSS2/color', {
-                                    errorCallback: (e) => {
-                                        aladin.addStatusBarMessage({
-                                            duration: 2000,
-                                            type: 'info',
-                                            message: 'DSS2 colored HiPS could not plot',
-                                        })
-                                    }
-                                })
+                                'P/DSS2/color'
                             );
                         },
                     },
@@ -718,6 +710,7 @@ export class OverlayStackBox extends Box {
         // Add a listener for HiPS list changes
         ALEvent.FAVORITE_HIPS_LIST_UPDATED.listenedBy(document.body, (event) => {
             let favoritesHips = event.detail;
+
             self.cachedHiPS = {};
 
             for (var hips of favoritesHips) {
@@ -939,6 +932,7 @@ export class OverlayStackBox extends Box {
             if (options.indexOf(value) < 0) {
                 options.push(value)
             }
+
 
             let HiPSSelector = Input.select({
                 value,

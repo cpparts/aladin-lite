@@ -198,10 +198,9 @@ export let View = (function () {
         lon = lat = 0;
 
         // FoV init settings
-        let initialFov = this.options.fov || 180.0;
         this.pinchZoomParameters = {
             isPinching: false, // true if a pinch zoom is ongoing
-            initialFov: undefined,
+            initialZoomFactor: undefined,
             initialDistance: undefined,
         };
 
@@ -210,7 +209,7 @@ export let View = (function () {
         this.setProjection(projName)
 
         // Then set the zoom properly once the projection is defined
-        this.fov = initialFov
+        this.fov = this.options.fov || 180.0
 
         // Target position settings
         this.viewCenter = { lon, lat }; // position of center of view
@@ -593,7 +592,7 @@ export let View = (function () {
                 const [lon, lat] = view.aladin.pix2world(xymouse.x, xymouse.y, 'icrs');
                 view.pointTo(lon, lat);
                 // reset the rotation around center view
-                view.setViewCenter2NorthPoleAngle(0.0);
+                view.setRotation(0.0);
             }
             catch (err) {
                 return;
@@ -641,6 +640,7 @@ export let View = (function () {
                 var footprintClickedFunction = view.aladin.callbacksByEventName['footprintClicked'];
 
                 let objsByCats = {};
+                let shapes = [];
                 for (let o of objs) {
                     // classify the different objects by catalog
                     let cat = o.getCatalog && o.getCatalog();
@@ -659,11 +659,22 @@ export let View = (function () {
                             footprintClickedFunction(o, xy);
                         }
                     }
+
+                    // If this shape has a catalog then it will be selected from its source
+                    // so we will not add it
+                    if (!cat) {
+                        shapes.push(o);
+                    }
                 }
 
-                // rewrite objs
+                // Rewrite objs
                 objs = Array.from(Object.values(objsByCats));
+                // Add the external shapes (i.e. which are not associated with catalog sources e.g. those from GraphicOverlay)
+                if (shapes.length > 0) {
+                    objs.push(shapes)
+                }
                 view.selectObjects(objs);
+
                 view.lastClickedObject = objs;
                 
             } else {
@@ -706,9 +717,7 @@ export let View = (function () {
                         // Take as start cut values what is inside the properties
                         // If the cuts are not defined in the metadata of the survey
                         // then we take what has been defined by the user
-                        cutMinInit = imageLayer.getColorCfg().minCut || 0.0;
-                        cutMaxInit = imageLayer.getColorCfg().maxCut || 1.0;
-                        
+                        [cutMinInit, cutMaxInit] = imageLayer.getCuts();
                     }
                 }
 
@@ -736,9 +745,13 @@ export let View = (function () {
             if (e.type === 'touchstart' && e.targetTouches && e.targetTouches.length >= 2) {
                 view.dragging = false;
 
+                // Do not start the pinched rotation if the north up is locked
+                if (view.aladin.lockNorthUp === true) {
+                    return;
+                }
+
                 view.pinchZoomParameters.isPinching = true;
-                var fov = view.wasm.getFieldOfView();
-                view.pinchZoomParameters.initialFov = fov;
+                view.pinchZoomParameters.initialZoomFactor = view.zoomFactor;
                 view.pinchZoomParameters.initialDistance = Math.sqrt(Math.pow(e.targetTouches[0].clientX - e.targetTouches[1].clientX, 2) + Math.pow(e.targetTouches[0].clientY - e.targetTouches[1].clientY, 2));
 
                 view.fingersRotationParameters.initialViewAngleFromCenter = view.wasm.getViewCenter2NorthPoleAngle();
@@ -825,7 +838,7 @@ export let View = (function () {
 
             if ((e.type === 'touchend' || e.type === 'touchcancel') && view.pinchZoomParameters.isPinching) {
                 view.pinchZoomParameters.isPinching = false;
-                view.pinchZoomParameters.initialFov = view.pinchZoomParameters.initialDistance = undefined;
+                view.pinchZoomParameters.initialZoomFactor = view.pinchZoomParameters.initialDistance = undefined;
 
                 return;
             }
@@ -1011,13 +1024,13 @@ export let View = (function () {
                         // planetary survey case
                         rotation -= fingerAngleDiff;
                     }
-                    view.setViewCenter2NorthPoleAngle(rotation);
+                    view.setRotation(rotation);
                 }
 
                 // zoom
                 const dist = Math.sqrt(Math.pow(e.touches[0].clientX - e.touches[1].clientX, 2) + Math.pow(e.touches[0].clientY - e.touches[1].clientY, 2));
-                const fov = view.pinchZoomParameters.initialFov * view.pinchZoomParameters.initialDistance / dist;
-                view.setFoV(fov);
+                const zoomFactor = view.pinchZoomParameters.initialZoomFactor * view.pinchZoomParameters.initialDistance / dist;
+                view.zoomFactor = zoomFactor;
 
                 return;
             }
@@ -1172,8 +1185,7 @@ export let View = (function () {
                 if (!view.throttledTouchPadZoom) {
                     view.throttledTouchPadZoom = () => {
                         const factor = Utils.detectTrackPad(e) ? 1.04 : 1.2;
-                        const currZoomFactor = view.zoom.isZooming ? view.zoom.finalZoom : view.wasm.getZoomFactor();
-                        //const currZoomFactor = view.wasm.getZoomFactor();
+                        const currZoomFactor = view.zoom.isZooming ? view.zoom.finalZoom : view.zoomFactor;
                         let newZoomFactor = view.delta > 0 ? currZoomFactor * factor : currZoomFactor / factor;
 
                         // inside case
@@ -1206,7 +1218,7 @@ export let View = (function () {
             switch (e.keyCode) {
                 // escape
                 case 27:
-                    // if there is a selection occuring
+                    // Called when realfullscreen is false. Escaping from real fullscreen does not seem to trigger the keydown event
                     if (view.aladin.isInFullscreen) {
                         view.aladin.toggleFullscreen(view.aladin.options.realFullscreen);
                     }
@@ -1379,6 +1391,10 @@ export let View = (function () {
         }
     };
 
+    View.prototype.reverseLongitude = function(longitudeReversed) {
+        this.wasm.setLongitudeReversed(longitudeReversed);
+    }
+
     View.prototype.refreshProgressiveCats = function () {
         if (!this.catalogs) {
             return;
@@ -1525,8 +1541,10 @@ export let View = (function () {
         });
     }
 
-    View.prototype.setViewCenter2NorthPoleAngle = function(rotation) {
-        this.wasm.setViewCenter2NorthPoleAngle(rotation);
+    View.prototype.setRotation = function(rotation) {
+        this.wasm.setRotation(rotation);
+        var rotationChangedCallback = this.aladin.callbacksByEventName["rotationChanged"];
+        typeof rotationChangedCallback === "function" && rotationChangedCallback(rotation);
     }
 
     View.prototype.setGridOptions = function (options) {
@@ -1592,6 +1610,7 @@ export let View = (function () {
     View.prototype.setOverlayImageLayer = function (imageLayer, layer = "overlay") {
         // set the view to the image layer object
         // do the properties query if needed
+        imageLayer.layer = layer;
         imageLayer._setView(this);
 
         // register its promise
@@ -1602,7 +1621,9 @@ export let View = (function () {
         return imageLayer;
     };
 
+    // Insert a layer object (Image/HiPS) at a specific index in the stack
     View.prototype._addLayer = function(imageLayer) {
+        // Keep the JS frontend in-line with the wasm state
         const layerName = imageLayer.layer;
         // Check whether this layer already exist
         const idxOverlayLayer = this.overlayLayers.findIndex(overlayLayer => overlayLayer == layerName);
@@ -1613,23 +1634,22 @@ export let View = (function () {
         } else {
             // it exists
             alreadyPresentImageLayer = this.imageLayers.get(layerName);
-            alreadyPresentImageLayer.added = false;
+            // Notify that this image layer has been replaced by the wasm part
+            if (alreadyPresentImageLayer && alreadyPresentImageLayer.added === true) {
+                ALEvent.HIPS_LAYER_REMOVED.dispatchedTo(this.aladinDiv, { layer: alreadyPresentImageLayer });
+            }
 
+            alreadyPresentImageLayer.added = false;
             this.imageLayers.delete(layerName);
         }
 
-        //imageLayer.added = true;
+        imageLayer.added = true;
 
         this.imageLayers.set(layerName, imageLayer);
 
         // select the layer if he is on top
         if (idxOverlayLayer == -1) {
             this.selectLayer(layerName);
-        }
-        
-        // Notify that this image layer has been replaced by the wasm part
-        if (alreadyPresentImageLayer) {
-            ALEvent.HIPS_LAYER_REMOVED.dispatchedTo(this.aladinDiv, { layer: alreadyPresentImageLayer });
         }
 
         ALEvent.HIPS_LAYER_ADDED.dispatchedTo(this.aladinDiv, { layer: imageLayer });
@@ -1640,6 +1660,7 @@ export let View = (function () {
         // start the query
         const imageLayerPromise = imageLayer.query;
 
+        let idx = this.promises.length;
         this.promises.push(imageLayerPromise);
 
         // All image layer promises must be completed (fullfilled or rejected)
@@ -1647,25 +1668,21 @@ export let View = (function () {
             message: 'Load layer: ' + imageLayer.name,
             id: Utils.uuidv4(),
         }
-        Promise.allSettled(this.promises)
-            .then(() => imageLayerPromise)
-            // The promise is resolved and we now have access
-            // to the image layer objet (whether it is an HiPS or an Image)
+        // Ensure all the properties for HiPSes have been seeked
+        ALEvent.FETCH.dispatchedTo(document, {task});
+        // All the remaining promises must be terminated and the current one must be resolved
+        // so that we can add it to the view (call of _add2View)
+        Promise.all([Promise.allSettled(this.promises), imageLayerPromise])
+            // Then we add the layer to the view
+            .then((_) => imageLayer._add2View(layer))
+            // Then we keep a track of the layer in the JS front
             .then((imageLayer) => {
-                // Add to the backend
-                imageLayer._setView(this)
-                const promise = imageLayer._add(layer);
-                ALEvent.FETCH.dispatchedTo(document, {task});
+                this._addLayer(imageLayer);
 
-                return promise;
-            })
-            .then((imageLayer) => {
                 // If the image layer has successfuly been added
                 this.empty = false;
 
-                this._addLayer(imageLayer);
-
-                // change the view frame in case we have a planetary hips loaded
+                // Change the view frame in case we have a planetary hips loaded
                 if (imageLayer.hipsBody) {
                     if (this.options.showFrame) {
                         this.aladin.setFrame('J2000d');
@@ -1689,7 +1706,6 @@ export let View = (function () {
                 self.imageLayersBeingQueried.delete(layer);
 
                 // Remove the settled promise
-                let idx = this.promises.findIndex(p => p == imageLayerPromise);
                 this.promises.splice(idx, 1);
 
                 const noMoreLayersToWaitFor = this.promises.length === 0;
@@ -2098,26 +2114,21 @@ export let View = (function () {
         }
 
         let closests = [];
-        const fLineWidth = (footprints && footprints[0] && footprints[0].getLineWidth()) || 1;
-        let lw = fLineWidth + 3;
-        //for (var lw = startLw + 1; lw <= startLw + 3; lw++) {
-            footprints.forEach((footprint) => {
-                if (!footprint.source || !footprint.source.tooSmallFootprint) {
-                    // Hidden footprints are not considered
-                    //let originLineWidth = footprint.getLineWidth();
-    
-                    footprint.setLineWidth(lw);
-                    if (footprint.isShowing && footprint.isInStroke(ctx, this, x * window.devicePixelRatio, y * window.devicePixelRatio)) {
-                        closests.push(footprint);
-                    }
-                    footprint.setLineWidth(fLineWidth);
-                }
-            })
 
-        /*    if (closests.length > 0) {
-                break;
+        footprints.forEach((footprint) => {
+            if (!footprint.source || !footprint.source.tooSmallFootprint) {
+                const originLineWidth = footprint.getLineWidth();
+                let spreadedLineWidth = (originLineWidth || 1) + 3;
+
+                footprint.setLineWidth(spreadedLineWidth);
+                if (footprint.isShowing && footprint.isInStroke(ctx, this, x * window.devicePixelRatio, y * window.devicePixelRatio)) {
+                    closests.push(footprint);
+                }
+
+                footprint.setLineWidth(originLineWidth);
             }
-        }*/
+        })
+
 
         return closests;
     };
@@ -2129,13 +2140,11 @@ export let View = (function () {
         var canvas = this.catalogCanvas;
         var ctx = canvas.getContext("2d");
         // this makes footprint selection easier as the catch-zone is larger
-        //let pastLineWidth = ctx.lineWidth;
 
         let closests = [];
         if (this.overlays) {
             for (var k = 0; k < this.overlays.length; k++) {
                 overlay = this.overlays[k];
-
                 closests = closests.concat(this.closestFootprints(overlay.overlayItems, ctx, x, y));
             }
         }

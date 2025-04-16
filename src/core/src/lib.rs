@@ -130,7 +130,7 @@ use al_core::Colormap;
 use al_core::WebGlContext;
 
 use app::App;
-use cgmath::{Vector2, Vector4};
+use cgmath::{Vector2, Vector3};
 
 use crate::healpix::cell::HEALPixCell;
 use math::angle::ArcDeg;
@@ -534,18 +534,18 @@ impl WebClient {
     /// # Arguments
     ///
     /// * `theta` - The rotation angle in degrees
-    #[wasm_bindgen(js_name = setViewCenter2NorthPoleAngle)]
-    pub fn set_view_center_pos_angle(&mut self, theta: f64) -> Result<(), JsValue> {
+    #[wasm_bindgen(js_name = setRotation)]
+    pub fn set_rotation(&mut self, theta: f64) -> Result<(), JsValue> {
         let theta = ArcDeg(theta);
-        self.app.set_view_center_pos_angle(theta);
+        self.app.set_position_angle(theta);
 
         Ok(())
     }
 
     /// Get the absolute orientation angle of the view
-    #[wasm_bindgen(js_name = getViewCenter2NorthPoleAngle)]
-    pub fn get_north_shift_angle(&mut self) -> Result<f64, JsValue> {
-        let phi = self.app.get_north_shift_angle();
+    #[wasm_bindgen(js_name = getRotation)]
+    pub fn get_rotation(&mut self) -> Result<f64, JsValue> {
+        let phi = self.app.get_position_angle();
         Ok(phi.to_degrees())
     }
 
@@ -564,6 +564,12 @@ impl WebClient {
     #[wasm_bindgen(js_name = getLongitudeReversed)]
     pub fn get_longitude_reversed(&self) -> bool {
         self.app.get_longitude_reversed()
+    }
+
+    /// Set the longitude axis reversed globally
+    #[wasm_bindgen(js_name = setLongitudeReversed)]
+    pub fn set_longitude_reversed(&mut self, longitude_reversed: bool) {
+        self.app.set_longitude_reversed(longitude_reversed);
     }
 
     /// Get the field of view angle value when the view is zoomed out to its maximum
@@ -608,6 +614,11 @@ impl WebClient {
         self.app.set_center(&location);
 
         Ok(())
+    }
+
+    #[wasm_bindgen(js_name = lockNorthUp)]
+    pub fn lock_north_up(&mut self) {
+        self.app.lock_north_up();
     }
 
     /// Get the center of the view
@@ -1104,12 +1115,12 @@ impl WebClient {
         let vertex_it = ra_deg
             .iter()
             .zip(dec_deg.iter())
-            .map(|(ra, dec)| -> Vector4<f64> {
+            .map(|(ra, dec)| -> Vector3<f64> {
                 let lonlat = LonLatT(ra.to_radians().to_angle(), dec.to_radians().to_angle());
                 lonlat.vector()
             });
 
-        let v_in = &Vector4::new(1.0, 0.0, 0.0, 1.0);
+        let v_in = &Vector3::new(1.0, 0.0, 0.0);
 
         let mut moc = HEALPixCoverage::from_3d_coos(pixel_d as u8 - 1, vertex_it, &v_in);
         if moc.sky_fraction() > 0.5 {

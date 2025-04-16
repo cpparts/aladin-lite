@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### What's Changed
+
+* [perf] perform CPU computations with Vec3 and Matrix3 and not 4 dimensions matrices/vectors
+* [feat] lockNorthUp Aladin object new option locking the north pole up to the view center
+
 ## Released
 
 ### 3.6.3
