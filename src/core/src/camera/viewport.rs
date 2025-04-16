@@ -431,13 +431,8 @@ impl CameraViewPort {
             // Compute the new clip zoom factor
             let a = aperture.abs();
 
-<<<<<<< HEAD
-            let v0 = math::lonlat::radec_to_xyzw((-a / 2.0).to_angle(), 0.0.to_angle());
-            let v1 = math::lonlat::radec_to_xyzw((a / 2.0).to_angle(), 0.0.to_angle());
-=======
             let v0 = math::lonlat::radec_to_xyz(-a.to_angle() / 2.0, 0.0.to_angle());
             let v1 = math::lonlat::radec_to_xyz(a.to_angle() / 2.0, 0.0.to_angle());
->>>>>>> upstream/develop
 
             // Vertex in the WCS of the FOV
             if let (Some(p0), Some(p1)) =
@@ -519,11 +514,7 @@ impl CameraViewPort {
             // zoom_factor < 1.0
             if let Some((lon, _)) = proj
                 .clip_to_world_space(&Vector2::new(self.zoom_factor, 0.0))
-<<<<<<< HEAD
-                .map(|xyzw| math::lonlat::xyzw_to_radec(&xyzw))
-=======
                 .map(|xyz| math::lonlat::xyz_to_radec(&xyz))
->>>>>>> upstream/develop
             {
                 lon.to_radians().abs() * 2.0
             } else {
