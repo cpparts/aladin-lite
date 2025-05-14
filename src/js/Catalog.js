@@ -710,6 +710,13 @@ export let Catalog = (function () {
         return this.sources;
     };
 
+    /**
+     * Get all the footprints
+     *
+     * @memberof Catalog
+     *
+     * @returns {Footprint[]} - an array of all the footprints in the catalog object
+     */
     Catalog.prototype.getFootprints = function () {
         return this.footprints;
     };

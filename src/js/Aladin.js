@@ -236,14 +236,31 @@ import { Polyline } from "./shapes/Polyline";
  */
 
 /**
+ * @typedef {Object} positionChangedParam
+ * @property {number} ra - Right-Ascenscion of the center screen
+ * @property {number} dec - Declination of the center screen
+ * @property {boolean} dragging - A flag to tell whether the view is currently being dragged
+ * @property {string} [frame="icrs"] - The frame in which the position is given. Always 'icrs' in this case
+ */
+
+/**
+ * @typedef {Object} mouseMoveParam
+ * @property {number} ra - Right-Ascenscion of the cursor in the sky
+ * @property {number} dec - Declination of the cursor in the sky
+ * @property {number} x - X screen position of the cursor
+ * @property {number} y - Y screen position of the cursor
+ * @property {string} frame - The frame in which the position is given. Corresponds to the current view frame.
+ */
+
+/**
  * @typedef {('select'|'objectsSelected'|'objectClicked'|'objectHovered'|'objectHoveredStop'|'footprintClicked'|'footprintHovered'|'positionChanged'|'zoomChanged'|'rotationChanged'|'click'|'rightClickMove'|'mouseMove'|'wheelTriggered'|'fullScreenToggled'|'cooFrameChanged'|'resizeChanged'|'projectionChanged'|'layerChanged')} EventListener
  * 
- * Some remarks:
  * <ul>
- * <li>'select' is <b>deprecated</b>, please use objectsSelected instead.</li>
- * <li>'mouseMove', 'click', 'wheelTriggered' are low level event listeners allowing the user to redefine basic functions. For example listening for 'wheelTriggered' will disable the default zooming heuristic then letting you to redefine it.</li>
+ * <li>'positionChanged' is triggered when the view position has been changed. It gives the user the new center position of the view in ICRS frame. See {@link positionChangedParam}</li>
+ * <li>'select' is <b>deprecated</b>, please use 'objectsSelected' instead.</li>
+ * <li>'mouseMove' is triggered when the mouse move over the view. It gives the the user the new position of the cursor in the current frame. See {@link mouseMoveParam}</li>
+ * <li>'wheelTriggered' allows to redefine the zooming. Listening for it will disable the default zooming heuristic.</li>
  * <li>'objectsSelected', 'objectClicked', 'objectHovered', 'objectHoveredStop', 'footprintClicked', 'footprintHovered' are triggered when a catalog source/footprint has been clicked, hovered, ...
- * <li>Whenever the position (resp the fov/rotation) of the view has been changed 'positionChanged' (resp 'zoomChanged'/'rotationChanged') is called</li>
  * </ul>
  */
 

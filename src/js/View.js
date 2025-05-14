@@ -149,7 +149,8 @@ export let View = (function () {
                             posChangedFn({
                                 ra: pos[0],
                                 dec: pos[1],
-                                dragging: dragging
+                                dragging: dragging,
+                                frame: 'ICRS'
                             });
                         } catch(e) {
                             console.error(e)
@@ -1120,11 +1121,11 @@ export let View = (function () {
                 if (typeof onMouseMoveFunction === 'function') {
                     var pos = view.aladin.pix2world(xymouse.x, xymouse.y);
                     if (pos !== undefined) {
-                        onMouseMoveFunction({ ra: pos[0], dec: pos[1], x: xymouse.x, y: xymouse.y });
+                        onMouseMoveFunction({ ra: pos[0], dec: pos[1], x: xymouse.x, y: xymouse.y, frame: view.cooFrame.label });
                     }
                     // send null ra and dec when we go out of the "sky"
                     else if (lastMouseMovePos != null) {
-                        onMouseMoveFunction({ ra: null, dec: null, x: xymouse.x, y: xymouse.y });
+                        onMouseMoveFunction({ ra: null, dec: null, x: xymouse.x, y: xymouse.y, frame: view.cooFrame.label });
                     }
                     lastMouseMovePos = pos;
                 }

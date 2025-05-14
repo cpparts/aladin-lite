@@ -64,6 +64,10 @@
             console.log(proj)
         });
 
+        aladin.on('positionChanged', function(pos) {
+            console.log(pos)
+        });
+
         aladin.on('layerChanged', function(imageLayer, layer, state){
             console.log(imageLayer, layer, state)
         });
