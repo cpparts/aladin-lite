@@ -29,6 +29,7 @@
  *****************************************************************************/
 
 import { Utils } from "./Utils";
+import A from "./A";
 
 export let Sesame = (function() {
     let Sesame = {};
@@ -52,7 +53,7 @@ export let Sesame = (function() {
 
         // try to parse as a position
         if ( ! isObjectName) {
-            var coo = new Coo();
+            var coo = A.coo();
 
             coo.parse(target);
             if (callback) {
