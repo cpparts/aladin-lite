@@ -24,7 +24,6 @@ use crate::camera::CameraViewPort;
 use crate::downloader::query;
 
 use crate::shader::ShaderManager;
-use crate::math::lonlat::LonLatT;
 
 use crate::downloader::request::allsky::Allsky;
 use crate::healpix::{cell::HEALPixCell, coverage::HEALPixCoverage};
@@ -505,13 +504,13 @@ impl HiPS3D {
     }
 
     // Position given is in the camera space
-    pub fn read_pixel(
+    /*pub fn read_pixel(
         &self,
         p: &LonLatT<f64>,
         camera: &CameraViewPort,
     ) -> Result<JsValue, JsValue> {
         self.buffer.read_pixel(p, camera)
-    }
+    }*/
 
     fn draw_internal(
         &self,

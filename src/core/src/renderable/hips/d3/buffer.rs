@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use crate::CameraViewPort;
-use crate::LonLatT;
 use al_core::image::Image;
 use al_core::WebGlContext;
 
@@ -160,10 +158,6 @@ impl HpxTileBuffer for HiPS3DBuffer {
         self.available_tiles_during_frame = true;
 
         Ok(())
-    }
-
-    fn read_pixel(&self, _pos: &LonLatT<f64>, _camera: &CameraViewPort) -> Result<JsValue, JsValue> {
-        todo!();
     }
 
     // Tell if a texture is available meaning all its sub tiles

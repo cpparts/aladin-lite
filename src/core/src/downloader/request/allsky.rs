@@ -28,19 +28,25 @@ impl From<AllskyRequest> for RequestType {
 use super::Url;
 
 use wasm_bindgen_futures::JsFuture;
-use web_sys::{RequestInit, RequestMode, Response};
+use web_sys::{RequestInit, Response, RequestCredentials};
 
 use al_core::{image::raw::ImageBuffer, texture::pixel::Pixel};
 use wasm_bindgen::JsCast;
 use wasm_bindgen::JsValue;
 
-async fn query_image(url: &str) -> Result<ImageBuffer<RGBA8U>, JsValue> {
+async fn query_image(url: &str, credentials: RequestCredentials) -> Result<ImageBuffer<RGBA8U>, JsValue> {
     let image = web_sys::HtmlImageElement::new().unwrap_abort();
     let image_cloned = image.clone();
 
+    let cors_value = match credentials {
+        RequestCredentials::Include => Some("use-credentials"),
+        RequestCredentials::SameOrigin => Some("anonymous"),
+        _ => Some("")
+    };
+
     let html_img_elt_promise = js_sys::Promise::new(
         &mut (Box::new(move |resolve, reject| {
-            image_cloned.set_cross_origin(Some(""));
+            image_cloned.set_cross_origin(cors_value);
             image_cloned.set_onload(Some(&resolve));
             image_cloned.set_onerror(Some(&reject));
             image_cloned.set_src(&url);
@@ -81,6 +87,8 @@ impl From<query::Allsky> for AllskyRequest {
             hips_cdid,
             texture_size,
             id,
+            credentials,
+            mode,
             channel: slice,
         } = query;
 
@@ -92,7 +100,7 @@ impl From<query::Allsky> for AllskyRequest {
             match channel {
                 ChannelType::RGB8U => {
                     let allsky_tile_size = std::cmp::min(tile_size, 64);
-                    let allsky = query_image(&url_clone).await?;
+                    let allsky = query_image(&url_clone, credentials).await?;
 
                     let allsky_tiles = handle_allsky_file::<RGBA8U>(
                         allsky,
@@ -119,7 +127,7 @@ impl From<query::Allsky> for AllskyRequest {
                 }
                 ChannelType::RGBA8U => {
                     let allsky_tile_size = std::cmp::min(tile_size, 64);
-                    let allsky = query_image(&url_clone).await?;
+                    let allsky = query_image(&url_clone, credentials).await?;
 
                     let allsky_tiles =
                         handle_allsky_file(allsky, allsky_tile_size, texture_size, tile_size)?
@@ -132,7 +140,8 @@ impl From<query::Allsky> for AllskyRequest {
                 _ => {
                     let mut opts = RequestInit::new();
                     opts.method("GET");
-                    opts.mode(RequestMode::Cors);
+                    opts.mode(mode);
+                    opts.credentials(credentials);
                     let window = web_sys::window().unwrap_abort();
 
                     let request = web_sys::Request::new_with_str_and_init(&url_clone, &opts)?;

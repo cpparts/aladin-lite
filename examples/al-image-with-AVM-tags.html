@@ -10,9 +10,9 @@
             let aladin = A.aladin('#aladin-lite-div', {fov: 30, target: "280 +0", projection: "AIT", showShareControl:true, showSettingsControl: true, showContextMenu:true});
             
             aladin.setOverlayImageLayer(A.image(
-                "https://www.virtualastronomy.org/images/sig05-013.jpg",
+                "https://www.virtualastronomy.org/files/avm_examples/spitzer/ssc2005-24a1.jpg",
                 {
-                    name: "sig05-017",
+                    name: "spitzer-ssc2005-24a1",
                     successCallback: (ra, dec, fov, image) => {
                         console.log(ra, dec)
                         aladin.gotoRaDec(ra, dec);

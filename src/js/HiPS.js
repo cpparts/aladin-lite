@@ -166,7 +166,54 @@ PropertyParser.isPlanetaryBody = function (properties) {
  * @property {number} [saturation=0.0] - The saturation value for the color configuration.
  * @property {number} [brightness=0.0] - The brightness value for the color configuration.
  * @property {number} [contrast=0.0] - The contrast value for the color configuration.
+ * @property {string} [requestMode='cors'] - Determines how the request will interact with cross-origin resources.
+    *  - 'cors' - allow cross-origin requests with proper CORS headers.
+    *  - 'no-cors' - send the request without CORS.
+    *  - 'same-origin' - only allow requests to the same origin.
+ * @property {string} [requestCredentials='omit'] - Specifies whether to send cookies and HTTP credentials with the request.
+    *  - 'omit' - never send credentials.
+    *  - 'same-origin' - send only for same-origin requests.
+    *  - 'include' - always send, even for cross-origin requests.
  */
+
+/**
+ * Screen pixel prober type
+ * 
+ * @typedef {Object} PixelProber
+ * @property {number} [x] - x screen coordinate. Default is set to the view center, i.e. half the width in pixels of the aladin lite div.
+ * @property {number} [y] - y screen coordinate. Default is set to the view center, i.e. half the height in pixels of the aladin lite div.
+ */
+
+/**
+ * Screen line prober type
+ * 
+ * @typedef {Object} LineProber
+ * @property {number} [x1] - x start point screen coordinate
+ * @property {number} [y1] - y start point screen coordinate
+ * @property {number} [x2] - x end point screen coordinate
+ * @property {number} [y2] - y end point screen coordinate
+ */
+
+/**
+ * Sky great circle arc prober type
+ * 
+ * @typedef {Object} GreatCircleArcProber
+ * @property {number} [ra1] - ra first point sky coordinate (in icrs) frame
+ * @property {number} [dec1] - dec first point sky coordinate (in icrs) frame
+ * @property {number} [ra2] - ra end point sky coordinate (in icrs) frame
+ * @property {number} [dec2] - dec end point sky coordinate (in icrs) frame
+ */
+
+/**
+ * Screen rectangular prober type
+ * 
+ * @typedef {Object} RectProber
+ * @property {number} [top] - top screen pixel coordinate
+ * @property {number} [left] - left screen pixel coordinate
+ * @property {number} [w] - width in screen pixel
+ * @property {number} [h] - height in screen pixel
+ */
+
 
 /**
  * JS {@link https://developer.mozilla.org/fr/docs/Web/API/FileList| FileList} API type
@@ -181,7 +228,6 @@ PropertyParser.isPlanetaryBody = function (properties) {
  * @property {File} properties - The local properties file of the HiPS
  */
 
- 
 export let HiPS = (function () {
     /**
      * The object describing an image survey
@@ -210,6 +256,8 @@ export let HiPS = (function () {
         this.options = options;
         this.name = (options && options.name) || id;
         this.startUrl = options.startUrl;
+        this.requestMode = options && options.requestMode || 'cors';
+        this.requestCredentials = options && options.requestCredentials || 'omit';
 
         this.slice = 0;
 
@@ -314,7 +362,7 @@ export let HiPS = (function () {
                     // ID typed url
                     if (self.startUrl && isID) {
                         // First download the properties from the start url
-                        await HiPSProperties.fetchFromUrl(self.startUrl)
+                        await HiPSProperties.fetchFromUrl(self.startUrl, self.requestMode, self.requestCredentials)
                             .then((p) => {
                                 self._parseProperties(p);
                             })
@@ -363,7 +411,7 @@ export let HiPS = (function () {
                                     .catch((_) => reject("HiPS " + self.id + " error: " + id + " does not refer to a found CDS ID nor a local path pointing towards a HiPS"))
                             })
                     } else {
-                        await HiPSProperties.fetchFromUrl(self.url)
+                        await HiPSProperties.fetchFromUrl(self.url, self.requestMode, self.requestCredentials)
                             .then((p) => {
                                 self._parseProperties(p);
                             })
@@ -849,16 +897,66 @@ export let HiPS = (function () {
     HiPS.prototype.getAlpha = HiPS.prototype.getOpacity;
 
     /**
-     * Read a specific screen pixel value
+     * Probe the HiPS at a screen pixel location.
      * 
-     * @todo This has not yet been implemented
+     * @description
+     * Returns the true pixel value for the pixel located at the given (x, y) pixel screen position.
+     * This method returns the true value coming from the tiles (color or 1 channel fits). It does not take into
+     * account the apply of a transfer function, a colormap, cuts etc... It only returns the true pixel value coming from the tile
+     * 
+     * If you want to retrieve the pixels after apply of a transfer function, colormap, etc... i.e. if you are not looking for
+     * the real HiPS pixel values, then you might be more interested in {@link Aladin#readPixel} instead.
+     * 
      * @memberof HiPS
-     * @param {number} x - x axis in screen pixels to probe
-     * @param {number} y - y axis in screen pixels to probe
-     * @returns {number} the value of that pixel
+     * @param {number} [x] - x screen pixel coordinate. Default is set to the view center, i.e. half the width in pixels of the aladin lite div.
+     * @param {number} [y] - y screen pixel coordinate. Default is set to the view center, i.e. half the height in pixels of the aladin lite div.
+     * @returns {number} - The pixel value coming directly from the tiles
      */
     HiPS.prototype.readPixel = function (x, y) {
-        return this.view.wasm.readPixel(x, y, this.layer);
+        x = x || (this.view.width / 2);
+        y = y || (this.view.height / 2);
+        return this.view.wasm.probePixel(x, y, this.layer);
+    };
+
+    /**
+     * Probe the HiPS true pixels
+     * 
+     * @description
+     * Returns the true pixels composing this HiPS.
+     * This method returns the true value coming from the tiles (whether it refers to colored or 1 channel fits ones). It does not take into
+     * account the apply of a transfer function, a colormap, cuts etc... i.e. it returns the true pixel values coming from the tiles.
+     * 
+     * This method is called by {@link HiPS#readPixel} with a pixel prober on the view center.
+     * 
+     * If you want to retrieve the pixels you directly see on the screen, then you might be more interested in {@link Aladin#readCanvas} instead.
+     * 
+     * @memberof HiPS
+     * @param {PixelProber|LineProber|GreatCircleArcProber} prober - A prob object. Only, `pixel`, `line` or `arc` are accepted.
+     * @returns {number[]} The pixel value(s) probed.
+     */
+    HiPS.prototype.probe = function (prober) {
+        if (Utils.isNumber(prober.x) && Utils.isNumber(prober.y)) {
+            // pixel probing
+            return this.readPixel(prober.x, prober.y);
+        } else if (Utils.isNumber(prober.x1) && Utils.isNumber(prober.y1) && Utils.isNumber(prober.x2) && Utils.isNumber(prober.y2)) {
+            // line probing
+            return this.view.wasm.probeLineOfPixels(prober.x1, prober.y1, prober.x2, prober.y2, this.layer);
+        } else if (Utils.isNumber(prober.ra1) && Utils.isNumber(prober.dec1) && Utils.isNumber(prober.ra2) && Utils.isNumber(prober.dec2)) {
+            // get the vertices along the great circle arc
+            let pixelsAlongArc = view.wasm.projectGreatCircleArc(prober.ra1, prober.dec1, prober.ra2, prober.dec2);
+
+            let pixels = []
+            for (var i = 0; i < pixelsAlongArc.length; i+=4) {
+                pixels = pixels.concat(this.probe({
+                    x1: pixelsAlongArc[i],
+                    y1: pixelsAlongArc[i+1],
+                    x2: pixelsAlongArc[i+2],
+                    y2: pixelsAlongArc[i+3],
+                }))
+            }
+
+            return pixels
+        }
     };
 
     HiPS.prototype._setView = function (view) {
@@ -902,6 +1000,8 @@ export let HiPS = (function () {
                 hipsCubeDepth: self.cubeDepth,
                 isPlanetaryBody: self.isPlanetaryBody(),
                 hipsBody: self.hipsBody,
+                requestCredentials: self.requestCredentials,
+                requestMode: self.requestMode,
             },
             meta: {
                 ...this.colorCfg.get(),
